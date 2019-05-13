@@ -1,0 +1,7 @@
+fiona
+-e git+https://github.com/loicdtx/imageprocessing.git#egg=micasense
+shapely
+rasterio
+numpy
+pyexiftool
+
