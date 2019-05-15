@@ -1,4 +1,9 @@
-def dd2dms(lon, lat):
+def dd2cardinals(lon, lat):
+    """Determine cardinal direction from coordinates in decimal degrees
+
+    Return:
+        dict: Dict with cardinal directions under GPSLatitudeRef and GPSLongitudeRef keys
+    """
     out = dict()
     if lon >= 0:
         out['GPSLongitudeRef'] = 'E'
@@ -12,6 +17,8 @@ def dd2dms(lon, lat):
 
 
 def exif_params_from_capture(c):
+    """Build a valid exif paramaters set from a ``micasense.capture.Capture``
+    """
     lat,lon,alt = c.location()
     gps_dt = c.utc_time()
     gps_date = gps_dt.date().isoformat()
@@ -19,7 +26,7 @@ def exif_params_from_capture(c):
     xres,yres = c.images[0].focal_plane_resolution_px_per_mm
     focal_length = c.images[0].focal_length
     focal_length_35 = c.images[0].focal_length_35
-    GPS_dict = dd2dms(lon, lat)
+    GPS_dict = dd2cardinals(lon, lat)
     params = ['-GPSVersionID=2.2.0.0',
               '-GPSAltitudeRef="Above Sea Level"',
               '-GPSAltitude=%f' % alt,
