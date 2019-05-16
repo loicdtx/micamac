@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+	
+	<title>GeoJSON tutorial - Leaflet</title>
+
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	
+	<link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico" />
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.5.1/leaflet.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.5.1/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.js"></script>
+
+
+	<style>
+		html, body {
+			height: 100%;
+			margin: 0;
+		}
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+
+	
+</head>
+<body>
+
+<div id='map'></div>
+
+<script>
+	var map = L.map('map').setView([0, 0], 3);
+
+	L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+	    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+	}).addTo(map);
+
+	var fc = {{ fc|tojson }};
+
+	var geojsonMarkerOptions = {
+	    radius: 8,
+	    fillColor: "#ff7800",
+	    color: "#000",
+	    weight: 1,
+	    opacity: 1,
+	    fillOpacity: 0.8
+	};
+
+	L.geoJSON(fc, {
+		pointToLayer: function (feature, latlng) {
+		    return L.circleMarker(latlng, geojsonMarkerOptions);
+		}
+	}).addTo(map);
+
+	// Initialise the FeatureGroup to store editable layers
+	var editableLayers = new L.FeatureGroup();
+	map.addLayer(editableLayers);
+
+	var drawPluginOptions = {
+	  position: 'topright',
+	  draw: {
+	    polygon: {
+	      allowIntersection: false, // Restricts shapes to simple polygons
+	      drawError: {
+		color: '#e1e100', // Color the shape will turn when intersects
+		message: '<strong>Oh snap!<strong> you can\'t draw that!' // Message that will show when intersect
+	      },
+	      shapeOptions: {
+		color: '#97009c'
+	      }
+	    },
+	    // disable toolbar item by setting it to false
+	    polyline: false,
+	    circle: false, // Turns off this drawing tool
+	    rectangle: true,
+	    marker: false,
+	    },
+	  edit: {
+	    featureGroup: editableLayers, //REQUIRED!!
+	    remove: false
+	  }
+	};
+
+	// Initialise the draw control and pass it the FeatureGroup of editable layers
+	var drawControl = new L.Control.Draw(drawPluginOptions);
+	map.addControl(drawControl);
+
+	var editableLayers = new L.FeatureGroup();
+	map.addLayer(editableLayers);
+
+	map.on('draw:created', function(e) {
+	  var type = e.layerType,
+	    layer = e.layer;
+
+	  if (type === 'marker') {
+	    layer.bindPopup('A popup!');
+	  }
+
+	  editableLayers.addLayer(layer);
+	  console.log(layer.toGeoJSON());
+
+	$.ajax({
+	    type: "POST",
+	    url: "/polygon",
+	    dataType: 'json',
+	    contentType: 'application/json',
+	    data: JSON.stringify(layer.toGeoJSON()),
+	    success: function (response) {
+		    console.log(response);
+
+	    }
+	});
+
+
+
+
+	});
+ 
+
+</script>
+
+
+
+</body>
+</html>
