@@ -1,6 +1,7 @@
 import math
 
 from affine import Affine
+from shapely.geometry import Point
 
 from micamac.exif_utils import exif_params_from_capture
 
@@ -32,3 +33,10 @@ def capture_to_files(c, path, count, scaling, warp_matrices, warp_mode,
     """Wrapper to align images of capture and write them to separate GeoTiffs on disk
     """
     pass
+
+
+def capture_to_point(c):
+    """Build a shapely Point from a capture
+    """
+    lat,lon,_ = c.location()
+    return Point(lon, lat)
