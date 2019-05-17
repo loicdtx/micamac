@@ -18,34 +18,41 @@ import argparse
 import multiprocessing as mp
 import functools
 import math
+import tempfile
+import json
 
 import numpy as np
 import matplotlib.pyplot as plt
-import imageio
 import exiftool
-import rasterio
-from rasterio.crs import CRS
-from affine import Affine
-from shapely.geometry import mapping
+import fiona
+from shapely.geometry import mapping, shape
 from flask import Flask, render_template, jsonify, request, session
 
 from micasense import imageutils
 import micasense.imageset as imageset
-from micasense.capture import Capture
 
-from micamac.micasense_utils import capture_to_point
+from micamac.micasense_utils import capture_to_point, capture_to_files
+from micamac.flask_utils import shutdown_server
 
 
 app = Flask(__name__, template_folder='../../templates')
 POLYGONS = []
 
 
-def shutdown_server():
-    func = request.environ.get('werkzeug.server.shutdown')
-    if func is None:
-        raise RuntimeError('Not running with the Werkzeug Server')
-    func()
+@app.route('/')
+def index():
+    fc_tmp_file = os.path.join(tempfile.gettempdir(), 'micamac_fc.geojson')
+    with open(fc_tmp_file) as src:
+        fc = json.load(src)
+    return render_template('index.html', fc=fc)
 
+
+@app.route('/polygon', methods = ['POST'])
+def post_polygon():
+    content = request.get_json(silent=True)
+    POLYGONS.append(content)
+    shutdown_server()
+    return jsonify('Bye')
 
 
 
@@ -58,36 +65,48 @@ def float_or_str(value):
         return value
 
 
-def main(img_dir, out_dir, alt_thresh, ncores, start_count):
+def main(img_dir, out_dir, alt_thresh, ncores, start_count, scaling, reflectance, subset, layer):
     # Create output dir it doesn't exist yet
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     # Load all images as imageset
     imgset = imageset.ImageSet.from_directory(img_dir)
     meta_list = imgset.as_nested_lists()
+    # Make feature collection of image centers and write it to tmp file
+    point_list = [capture_to_point(c) for c in imgset.captures]
     feature_list = [{'type': 'Feature',
                      'properties': {},
-                     'geometry': mapping(capture_to_point(c))}
-                    for c in imgset.captures]
+                     'geometry': mapping(x)}
+                    for x in point_list]
     fc = {'type': 'FeatureCollection',
           'features': feature_list}
 
-    @app.route('/')
-    def index():
-        return render_template('index.html', fc=fc)
+    ###########################
+    #### Optionally cut a spatial subset of the images
+    ##########################
+    if subset == 'interactive':
+        # Write feature collection to tmp file, to make it accessible to the flask app
+        # without messing up with the session context
+        fc_tmp_file = os.path.join(tempfile.gettempdir(), 'micamac_fc.geojson')
+        with open(fc_tmp_file, 'w') as dst:
+            json.dump(fc, dst)
+        # Select spatial subset interactively (available as feature in POLYGONS[0])
+        app.run(debug=False)
+        # Check which images intersect with the user defined polygon (list of booleans)
+        poly_shape = shape(POLYGONS[0]['geometry'])
+        in_polygon = [x.intersects(poly_shape) for x in point_list]
+    elif subset is None:
+        in_polygon = [True for x in point_list]
+    elif os.path.exists(subset):
+        with fiona.open(subset, layer) as src:
+            poly_shape = shape(src[0]['geometry'])
+        in_polygon = [x.intersects(poly_shape) for x in point_list]
+    else:
+        raise ValueError('--subset must be interactive, the path to an OGR file or left empty')
 
-
-    @app.route('/polygon', methods = ['POST'])
-    def post_polygon():
-        content = request.get_json(silent=True)
-        POLYGONS.append(content)
-        shutdown_server()
-        return jsonify('Bye')
-
-    # Select spatial subset
-    app.run(debug=False)
-
-    # mean_altitude = np.mean([x[3] for x in meta_list[0]])
+    ##################################
+    ### Threshold on altitude
+    ##################################
     if alt_thresh == 'interactive':
         alt_arr = np.array([x[3] for x in meta_list[0]])
         n, bins, patches = plt.hist(alt_arr, 100)
@@ -97,11 +116,28 @@ def main(img_dir, out_dir, alt_thresh, ncores, start_count):
         # Ask user for alt threshold
         alt_thresh = input('Enter altitude threshold:')
         alt_thresh = float(alt_thresh)
-        is_valid = [x[3] > alt_thresh for x in meta_list[0]]
+        above_alt = [x[3] > alt_thresh for x in meta_list[0]]
     elif isinstance(alt_thresh, float):
-        is_valid = [x[3] > alt_thresh for x in meta_list[0]]
+        above_alt = [x[3] > alt_thresh for x in meta_list[0]]
     else:
         raise ValueError('--alt_thresh argument must be a float or interactive')
+
+    # Combine both boolean lists (altitude and in_polygon)
+    is_valid = [x and y for x,y in zip(above_alt, in_polygon)]
+
+    #########################
+    ### Optionally retrieve irradiance values
+    #########################
+    if reflectance == 'panel':
+        pass
+    elif reflectance == 'dls':
+        pass
+    elif reflectance is None:
+        img_type = None
+        irradiance_list = None
+    else:
+        raise ValueError('Incorrect value for --reflectance, must be panel, dls or left empty')
+
 
     #########################
     ### Alignment parameters
@@ -133,7 +169,11 @@ def main(img_dir, out_dir, alt_thresh, ncores, start_count):
         plt.imshow(np.stack(cir_list, axis=-1))
         plt.show()
 
-        alignment_check = input("Are all bands properly aligned? y: begin processing; n: try another image (y/n):")
+        alignment_check = input("""
+Are all bands properly aligned? (y/n)
+    y: Bands are properly aligned, begin processing
+    n: Bands are not properly aliged or image is not representative of the whole set, try another image"""
+                               )
         if alignment_check.lower() == 'y':
             alignment_confirmed = True
         else:
@@ -149,10 +189,13 @@ def main(img_dir, out_dir, alt_thresh, ncores, start_count):
                       'warp_mode': warp_mode,
                       'cropped_dimensions': cropped_dimensions,
                       'match_index': match_index,
-                      'out_dir': out_dir}
+                      'out_dir': out_dir,
+                      'irradiance_list': irradiance_list, # TODO: This variable does not exist yet
+                      'img_type': img_type,
+                      'scaling': scaling}
     # Run process function with multiprocessing
     pool = mp.Pool(ncores)
-    pool.map(functools.partial(process, **process_kwargs), cap_tuple_iterator)
+    pool.map(functools.partial(capture_to_files, **process_kwargs), cap_tuple_iterator)
 
 
 if __name__ == '__main__':
@@ -190,6 +233,36 @@ Example usage:
                         required=True,
                         type=str,
                         help='output directory')
+    # scaling, reflectance, subset, layer
+    parser.add_argument('-scaling', '--scaling',
+                        type=int,
+                        default=100000,
+                        help='Scaling factor when storing reflectances or radiances as UInt16')
+
+    parser.add_argument('-reflectance', '--reflectance',
+                        type=str,
+                        default=None,
+                        help="""
+Way of retrieving irradiance values for computing reflectance:
+    panel: Use reflectance panel. It is assumed that panel images are present in the first image of the set
+    dls: Use onboad dls
+    None (leave empty): Reflectance is not computed and radiance images are returned instead
+                        """)
+
+    parser.add_argument('-subset', '--subset',
+                        type=str,
+                        default=None,
+                        help="""
+Optional spatial subset to restrict images processed.
+    interactive: Opens a interactive map in a browser window and select the area of interest interactively
+    /path/to/file.gpkg: Path to an OGR file. The first feature of the vector layer will be used to spatially subset the images
+    None (leave empty): No spatial subsetting
+                        """)
+
+    parser.add_argument('-layer', '--layer',
+                        type=str,
+                        default=None,
+                        help='Layer name when --subset is a path to a multilayer file')
 
     parser.add_argument('-alt', '--alt_thresh',
                         type=float_or_str,
