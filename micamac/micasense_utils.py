@@ -1,7 +1,12 @@
+import os
 import math
 
 from affine import Affine
 from shapely.geometry import Point
+import rasterio
+from rasterio.crs import CRS
+import numpy as np
+import exiftool
 
 from micasense import imageutils
 
@@ -32,7 +37,7 @@ def affine_from_capture(c, res):
 
 def capture_to_files(cap_tuple, scaling, out_dir, warp_matrices, warp_mode,
                      cropped_dimensions, match_index, img_type=None,
-                     irradiance_list=None):
+                     irradiance_list=None, resolution=0.1):
     """Wrapper to align images of capture and write them to separate GeoTiffs on disk
 
     Args:
@@ -49,8 +54,9 @@ def capture_to_files(cap_tuple, scaling, out_dir, warp_matrices, warp_mode,
                                                    match_index=match_index,
                                                    img_type=img_type)
         aligned_stack = aligned_stack * scaling
+        aligned_stack[aligned_stack > 65535] = 65535
         aligned_stack = aligned_stack.astype('uint16')
-        panchro_array = 0.299 * aligned_stack[:,:,2] + 0.587 * aligned_stack[:,:,1] + 0.114 * aligned_stack[:,:,0]
+        panchro_array = (0.299 * aligned_stack[:,:,2] + 0.587 * aligned_stack[:,:,1] + 0.114 * aligned_stack[:,:,0]) * 2
         panchro_array = panchro_array.astype('uint16')
         # Retrieve exif dict
         exif_params = exif_params_from_capture(cap)
@@ -62,7 +68,7 @@ def capture_to_files(cap_tuple, scaling, out_dir, warp_matrices, warp_mode,
         edge_path = os.path.join(out_dir, 'edge_%05d.tif' % count)
         pan_path = os.path.join(out_dir, 'pan_%05d.tif' % count)
         # Write 5 bands stack to file on disk
-        aff = affine_from_capture(cap)
+        aff = affine_from_capture(cap, resolution)
         profile = {'driver': 'GTiff',
                    'count': 1,
                    'transform': aff,

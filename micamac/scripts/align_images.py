@@ -12,12 +12,10 @@ Command line to pre-process micasense red-edge images; performs:
 """
 import os
 import glob
-from fractions import Fraction
 import random
 import argparse
 import multiprocessing as mp
 import functools
-import math
 import tempfile
 import json
 
@@ -65,7 +63,8 @@ def float_or_str(value):
         return value
 
 
-def main(img_dir, out_dir, alt_thresh, ncores, start_count, scaling, reflectance, subset, layer):
+def main(img_dir, out_dir, alt_thresh, ncores, start_count, scaling,
+         irradiance, subset, layer, resolution):
     # Create output dir it doesn't exist yet
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
@@ -128,11 +127,36 @@ def main(img_dir, out_dir, alt_thresh, ncores, start_count, scaling, reflectance
     #########################
     ### Optionally retrieve irradiance values
     #########################
-    if reflectance == 'panel':
-        pass
-    elif reflectance == 'dls':
-        pass
-    elif reflectance is None:
+    if irradiance == 'panel':
+        # Trying first capture, then last if doesn't work
+        try:
+            panel_cap = imgset.captures[0]
+            # Auto-detect panel, perform visual check, retrieve corresponding irradiance values
+            if panel_cap.detect_panels() != 5:
+                raise AssertionError('Panels could not be detected')
+            panel_cap.plot_panels()
+            # Visual check and ask for user confirmation
+            panel_check = input("Are panels properly detected ? (y/n):")
+            if panel_check != 'y':
+                raise AssertionError('User input, unsuitable detected panels !')
+        except Exception as e:
+            print("Failed to use pre flight panels; trying post flight panel capture")
+            panel_cap = imgset.captures[-1]
+            # Auto-detect panel, perform visual check, retrieve corresponding irradiance values
+            if panel_cap.detect_panels() != 5:
+                raise AssertionError('Panels could not be detected')
+            panel_cap.plot_panels()
+            # Visual check and ask for user confirmation
+            panel_check = input("Are panels properly detected ? (y/n):")
+            if panel_check != 'y':
+                raise AssertionError('User input, unsuitable detected panels !')
+        # Retrieve irradiance values from panels reflectance
+        img_type = 'reflectance'
+        irradiance_list = panel_cap.panel_irradiance()
+    elif irradiance == 'dls':
+        img_type = 'reflectance'
+        irradiance_list = None
+    elif irradiance is None:
         img_type = None
         irradiance_list = None
     else:
@@ -146,7 +170,7 @@ def main(img_dir, out_dir, alt_thresh, ncores, start_count, scaling, reflectance
     # assemble a rgb composite to perform visual check
     alignment_confirmed = False
     while not alignment_confirmed:
-        warp_cap_ind = random.randint(1, len(imgset.captures))
+        warp_cap_ind = random.randint(1, len(imgset.captures) - 1)
         warp_cap = imgset.captures[warp_cap_ind]
         warp_matrices, alignment_pairs = imageutils.align_capture(warp_cap,
                                                                   max_iterations=100,
@@ -172,7 +196,8 @@ def main(img_dir, out_dir, alt_thresh, ncores, start_count, scaling, reflectance
         alignment_check = input("""
 Are all bands properly aligned? (y/n)
     y: Bands are properly aligned, begin processing
-    n: Bands are not properly aliged or image is not representative of the whole set, try another image"""
+    n: Bands are not properly aliged or image is not representative of the whole set, try another image
+"""
                                )
         if alignment_check.lower() == 'y':
             alignment_confirmed = True
@@ -190,8 +215,9 @@ Are all bands properly aligned? (y/n)
                       'cropped_dimensions': cropped_dimensions,
                       'match_index': match_index,
                       'out_dir': out_dir,
-                      'irradiance_list': irradiance_list, # TODO: This variable does not exist yet
+                      'irradiance_list': irradiance_list,
                       'img_type': img_type,
+                      'resolution': resolution,
                       'scaling': scaling}
     # Run process function with multiprocessing
     pool = mp.Pool(ncores)
@@ -200,10 +226,12 @@ Are all bands properly aligned? (y/n)
 
 if __name__ == '__main__':
     epilog = """
-Process set of micasense rededge images from a flight.
-- Optional computation of irradiance values from panel reflectance
-- Conversion from radiance to reflectance
-- Bands alignment
+Process set of micasense rededge images from a flight. Performs:
+    - Spatial subseting to retain only captures within Area of Interest (user defined
+      either by interactively drawing a polygon, or by supplying vector file)
+    - Optional conversion to reflectance using irradiance values extracted from
+      either panel capture or DLS.
+    - Write 6 single band geotiff in UInt16 for each capture (panchromatique + 5 rededge bands)
 
 The cli requires plotting capabilities for user confirmation, so X-window must
 be enabled when working over ssh
@@ -214,10 +242,10 @@ When --irr is set to panel (default), the first image is assume to be of the pan
 Example usage:
 --------------
 # Display help
-./micasense_raw_to_jpg.py --help
+align_images.py --help
 
-# Generate rgb files for an entire flight using irradiance values retrieved from panel image
-./micasense_raw_to_jpg.py -i /path/to/images -o /path/to/output/dir
+# Process the whole directory, to reflectance, with interactive drawing of AOI
+align_images.py -i /path/to/images -o /path/to/output/dir -irr panel -subset interactive -n 40
 """
     # Instantiate argparse parser
     parser = argparse.ArgumentParser(epilog=epilog,
@@ -236,16 +264,17 @@ Example usage:
     # scaling, reflectance, subset, layer
     parser.add_argument('-scaling', '--scaling',
                         type=int,
-                        default=100000,
+                        default=60000,
                         help='Scaling factor when storing reflectances or radiances as UInt16')
 
-    parser.add_argument('-reflectance', '--reflectance',
+    parser.add_argument('-irr', '--irradiance',
                         type=str,
                         default=None,
                         help="""
 Way of retrieving irradiance values for computing reflectance:
-    panel: Use reflectance panel. It is assumed that panel images are present in the first image of the set
-    dls: Use onboad dls
+    panel: Use reflectance panel. It is assumed that panel images are present in the
+           first and/or the last image of the set
+    dls: Use onboad Downwelling Light Sensor
     None (leave empty): Reflectance is not computed and radiance images are returned instead
                         """)
 
@@ -268,6 +297,13 @@ Optional spatial subset to restrict images processed.
                         type=float_or_str,
                         default='interactive',
                         help = 'Consider only data above that altitude')
+
+    parser.add_argument('-res', '--resolution',
+                        type=float,
+                        default=0.1,
+                        help = """
+Expected ground resolution in meters. Not very important, only used for
+    approximative display of images in GIS software""")
 
     parser.add_argument('-n', '--ncores',
                         default=20,
