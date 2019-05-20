@@ -94,12 +94,14 @@ def main(img_dir, out_dir, alt_thresh, ncores, start_count, scaling,
         # Check which images intersect with the user defined polygon (list of booleans)
         poly_shape = shape(POLYGONS[0]['geometry'])
         in_polygon = [x.intersects(poly_shape) for x in point_list]
+        print('Centroid of drawn polygon: %s' % poly_shape.centroid.wkt)
     elif subset is None:
         in_polygon = [True for x in point_list]
     elif os.path.exists(subset):
         with fiona.open(subset, layer) as src:
             poly_shape = shape(src[0]['geometry'])
         in_polygon = [x.intersects(poly_shape) for x in point_list]
+        print('Centroid of supplied polygon: %s' % poly_shape.centroid.wkt)
     else:
         raise ValueError('--subset must be interactive, the path to an OGR file or left empty')
 
@@ -249,7 +251,7 @@ align_images.py -i /path/to/images -o /path/to/output/dir -irr panel -subset int
 """
     # Instantiate argparse parser
     parser = argparse.ArgumentParser(epilog=epilog,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+                                     formatter_class=argparse.RawTextHelpFormatter)
 
     # parser arguments
     parser.add_argument('-i', '--img_dir',
