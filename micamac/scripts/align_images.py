@@ -90,7 +90,7 @@ def main(img_dir, out_dir, alt_thresh, ncores, start_count, scaling,
         with open(fc_tmp_file, 'w') as dst:
             json.dump(fc, dst)
         # Select spatial subset interactively (available as feature in POLYGONS[0])
-        app.run(debug=False)
+        app.run(debug=False, host= '0.0.0.0')
         # Check which images intersect with the user defined polygon (list of booleans)
         poly_shape = shape(POLYGONS[0]['geometry'])
         in_polygon = [x.intersects(poly_shape) for x in point_list]
