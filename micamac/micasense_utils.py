@@ -111,8 +111,8 @@ def capture_to_files(cap_tuple, scaling, out_dir, warp_matrices, warp_mode,
     cap.clear_image_data()
 
 
-def capture_to_point(c):
+def capture_to_point(c, ndigits=6):
     """Build a shapely Point from a capture
     """
-    lat,lon,_ = c.location()
+    lat,lon,_ = [round(x, ndigits) for x in c.location()]
     return Point(lon, lat)
