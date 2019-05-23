@@ -50,7 +50,7 @@ def update_poubelle():
     bad_files = [os.path.basename(x) for x in bad_files]
     file_pattern = re.compile(r'pan_(\d{5}\.tif)$')
     [shutil.move(file_pattern.sub(r'blue_\1', x), 'Poubelle/') for x in bad_files]
-    [shutil.move(file_pattern.sub(r'green_\1', x) 'Poubelle/') for x in bad_files]
+    [shutil.move(file_pattern.sub(r'green_\1', x), 'Poubelle/') for x in bad_files]
     [shutil.move(file_pattern.sub(r'red_\1', x), 'Poubelle/') for x in bad_files]
     [shutil.move(file_pattern.sub(r'nir_\1', x), 'Poubelle/') for x in bad_files]
     [shutil.move(file_pattern.sub(r'edge_\1', x), 'Poubelle/') for x in bad_files]

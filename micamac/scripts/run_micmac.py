@@ -11,14 +11,15 @@ import multiprocessing as mp
 from shapely.geometry import Point
 
 from micamac.micmac_utils import run_tawny, dir_to_points, update_poubelle, update_ori
-from micamac.micmac_utils import create_proj_file, clean_intermediary, clean_images
+from micamac.micmac_utils import create_proj_file
+import micamac.micmac_utils as mutils
 
 
 COLORS = ['blue', 'green', 'red', 'nir', 'edge']
 
 
 def main(img_dir, lon, lat, radius, resolution, ortho, dem, ply,
-         ncores, utm, clean-intermediary, clean-images):
+         ncores, utm, clean_intermediary, clean_images):
     if not any([ortho, dem, ply]):
         raise ValueError('You must select at least one of --ortho, --dem and --ply')
     # Set workdir
@@ -132,11 +133,11 @@ def main(img_dir, lon, lat, radius, resolution, ortho, dem, ply,
     if ply:
         pass
 
-    if clean-intermediary:
-        clean_intermediary()
+    if clean_intermediary:
+        mutils.clean_intermediary()
 
-    if clean-images:
-        clean_images()
+    if clean_images:
+        mutils.clean_images()
 
 
 
