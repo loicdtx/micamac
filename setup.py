@@ -30,6 +30,7 @@ setup(name='micamac',
           'matplotlib',
           'flask',
           'micasense',
+          'Py6S',
           'pyexiftool'],
       scripts=[
           # 'micamac/scripts/get_centers.py',
