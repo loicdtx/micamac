@@ -6,6 +6,7 @@ import os
 import shutil
 
 from shapely.geometry import Point
+import exiftool
 
 
 def run_tawny(color):
