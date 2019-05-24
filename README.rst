@@ -48,8 +48,8 @@ Installation
 If it fails because of GDAL or rasterio, try running the commands below.
 
 .. code-block:: bash
-	
-	pip install numpy
+    
+    pip install numpy
     pip install GDAL==$(gdal-config --version) --global-option=build_ext --global-option="-I/usr/include/gdal"
     pip install -r requirements.txt
     pip install -e .
