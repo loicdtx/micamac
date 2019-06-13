@@ -16,11 +16,24 @@ from micamac.micmac_utils import create_proj_file, clean_intermediary, clean_ima
 
 COLORS = ['blue', 'green', 'red', 'nir', 'edge']
 
+STARTFROM_MAPPING = {'exif': 0, # Default
+                     'tapioca': 1,
+                     'schnaps': 2,
+                     'tapas_subset': 3,
+                     'martini': 4,
+                     'tapas_full': 5,
+                     'centerbascule': 6,
+                     'campari': 7,
+                     'chgsysco': 8,
+                     'malt_pan': 9,
+                     'malt_multi': 10,
+                     'tawny': 11}
 
 def main(img_dir, lon, lat, radius, resolution, ortho, dem, ply,
-         ncores, utm, clean-intermediary, clean-images):
+         ncores, utm, clean-intermediary, clean-images, startfrom):
     if not any([ortho, dem, ply]):
         raise ValueError('You must select at least one of --ortho, --dem and --ply')
+    startfrom = STARTFROM_MAPPING[startfrom.lower()]
     # Set workdir
     os.chdir(img_dir)
     proj_xml = """
@@ -52,12 +65,14 @@ def main(img_dir, lon, lat, radius, resolution, ortho, dem, ply,
                      'ChSys=DegreeWGS84@RTLFromExif.xml', 'MTD1=1',
                      'NameCple=FileImagesNeighbour.xml', 'NbImC=20'])
 
-    # mm3d Tapioca File FileImagesNeighbour.xml -1
-    subprocess.call(['mm3d', 'Tapioca', 'File',
-                     'FileImagesNeighbour.xml', '-1'])
+    if startfrom <= 1:
+        # mm3d Tapioca File FileImagesNeighbour.xml -1
+        subprocess.call(['mm3d', 'Tapioca', 'File',
+                         'FileImagesNeighbour.xml', '-1'])
 
-    # mm3d Schnaps "pan.*tif" MoveBadImgs=1
-    subprocess.call(['mm3d', 'Schnaps', 'pan.*tif', 'MoveBadImgs=1'])
+    if startfrom <= 2:
+        # mm3d Schnaps "pan.*tif" MoveBadImgs=1
+        subprocess.call(['mm3d', 'Schnaps', 'pan.*tif', 'MoveBadImgs=1'])
 
     # Build a list of file around the provided coordinate to compute a pre orientation model
     radius_dd = radius / 111320.0
@@ -67,33 +82,42 @@ def main(img_dir, lon, lat, radius, resolution, ortho, dem, ply,
     for point_tuple in point_list:
         if point_tuple[0].intersects(search_polygon):
             img_list.append(point_tuple[1])
-    # mm3d Tapas FraserBasic $file_list Out=Arbitrary_pre SH=_mini
-    subprocess.call(['mm3d', 'Tapas', 'FraserBasic',
-                     '|'.join(img_list),
-                     'Out=Arbitrary_pre', 'SH=_mini'])
 
-    # Compute orientation model for the full block
-    # mm3d Tapas FraserBasic "pan.*tif" Out=Arbitrary SH=_mini InCal=Arbitrary_pre
-    p = subprocess.Popen(['mm3d', 'Tapas', 'FraserBasic',
-                          'pan.*tif', 'Out=Arbitrary', 'SH=_mini',
-                          'InCal=Arbitrary_pre'])
-    p.communicate(input='\n')
+    if startfrom <= 3:
+        # mm3d Tapas FraserBasic $file_list Out=Arbitrary_pre SH=_mini
+        subprocess.call(['mm3d', 'Tapas', 'FraserBasic',
+                         '|'.join(img_list),
+                         'Out=Arbitrary_pre', 'SH=_mini'])
 
-    # mm3d CenterBascule "rgb.*tif" Arbitrary RAWGNSS_N Ground_Init_RTL
-    subprocess.call(['mm3d', 'CenterBascule', 'pan.*tif',
-                     'Arbitrary', 'RAWGNSS_N', 'Ground_Init_RTL'])
+    # TODO: Include martini to speed up Tapas init
 
-    # mm3d Campari "rgb.*tif" Ground_Init_RTL Ground_RTL EmGPS=\[RAWGNSS_N,5\] AllFree=1 SH=_mini
-    subprocess.call(['mm3d', 'Campari', 'pan.*tif', 'Ground_Init_RTL', 'Ground_RTL',
-                     'EmGPS=[RAWGNSS_N,5]', 'AllFree=1', 'SH=_mini'])
+    if startfrom <= 5:
+        # Compute orientation model for the full block
+        # mm3d Tapas FraserBasic "pan.*tif" Out=Arbitrary SH=_mini InCal=Arbitrary_pre
+        p = subprocess.Popen(['mm3d', 'Tapas', 'FraserBasic',
+                              'pan.*tif', 'Out=Arbitrary', 'SH=_mini',
+                              'InCal=Arbitrary_pre'])
+        p.communicate(input='\n')
 
-    # mm3d ChgSysCo  "rgb.*tif" Ground_RTL RTLFromExif.xml@SysUTM.xml Ground_UTM
-    subprocess.call(['mm3d', 'ChgSysCo', 'pan.*tif',
-                     'Ground_RTL', 'RTLFromExif.xml@SysUTM.xml', 'Ground_UTM'])
+    if startfrom <= 5:
+        # mm3d CenterBascule "rgb.*tif" Arbitrary RAWGNSS_N Ground_Init_RTL
+        subprocess.call(['mm3d', 'CenterBascule', 'pan.*tif',
+                         'Arbitrary', 'RAWGNSS_N', 'Ground_Init_RTL'])
 
-    # Run malt for panchromatic
-    subprocess.call(['mm3d', 'Malt', 'Ortho',
-                     'pan.*tif', 'Ground_UTM', 'ResolTerrain=%f' % resolution])
+    if startfrom <= 6:
+        # mm3d Campari "rgb.*tif" Ground_Init_RTL Ground_RTL EmGPS=\[RAWGNSS_N,5\] AllFree=1 SH=_mini
+        subprocess.call(['mm3d', 'Campari', 'pan.*tif', 'Ground_Init_RTL', 'Ground_RTL',
+                         'EmGPS=[RAWGNSS_N,5]', 'AllFree=1', 'SH=_mini'])
+
+    if startfrom <= 7:
+        # mm3d ChgSysCo  "rgb.*tif" Ground_RTL RTLFromExif.xml@SysUTM.xml Ground_UTM
+        subprocess.call(['mm3d', 'ChgSysCo', 'pan.*tif',
+                         'Ground_RTL', 'RTLFromExif.xml@SysUTM.xml', 'Ground_UTM'])
+
+    if startfrom <= 8:
+        # Run malt for panchromatic
+        subprocess.call(['mm3d', 'Malt', 'Ortho',
+                         'pan.*tif', 'Ground_UTM', 'ResolTerrain=%f' % resolution])
 
     # MIrror content of POubelle for all colors
     update_poubelle()
@@ -101,16 +125,17 @@ def main(img_dir, lon, lat, radius, resolution, ortho, dem, ply,
     # Create orientation files for every color
     update_ori()
 
-    # Run malt for every band
-    for color in COLORS:
-        subprocess.call(['mm3d', 'Malt', 'Ortho',
-                         '(pan|%s).*tif' % color,
-                         'Ground_UTM', 'DoMEC=0', 'DoOrtho=1',
-                         'ImOrtho="%s.*.tif"' % color,
-                         'DirOF=Ortho-%s' % color,
-                         'DirMEC=MEC-Malt',
-                         'ImMNT="pan.*tif"',
-                         'ResolTerrain=%f' % resolution])
+    if startfrom <= 9:
+        # Run malt for every band
+        for color in COLORS:
+            subprocess.call(['mm3d', 'Malt', 'Ortho',
+                             '(pan|%s).*tif' % color,
+                             'Ground_UTM', 'DoMEC=0', 'DoOrtho=1',
+                             'ImOrtho="%s.*.tif"' % color,
+                             'DirOF=Ortho-%s' % color,
+                             'DirMEC=MEC-Malt',
+                             'ImMNT="pan.*tif"',
+                             'ResolTerrain=%f' % resolution])
 
     # Create output dir and run gdal_translate
     if not os.path.exists('OUTPUT'):
@@ -215,6 +240,27 @@ on the other micmac steps that use all threads available""")
     parser.add_argument('-c-img', '--clean-images',
                         action='store_true',
                         help='Delete all input images after successful completion')
+
+    parser.add_argument('-sf', '--startfrom',
+                        default='exif',
+                        type=str,
+                        help="""
+Step from which to start the process, usefull for re-starting a failed or interupted
+previous process.
+Can be one of:
+    exif
+    tapioca
+    schnaps
+    tapas_subset
+    martini
+    tapas_full
+    centerbascule
+    campari
+    chgsysco
+    malt_pan
+    malt_multi
+    tawny
+""")
 
 
     parsed_args = parser.parse_args()
