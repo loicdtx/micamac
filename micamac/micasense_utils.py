@@ -56,7 +56,7 @@ def capture_to_files(cap_tuple, scaling, out_dir, warp_matrices, warp_mode,
         aligned_stack = aligned_stack * scaling
         aligned_stack[aligned_stack > 65535] = 65535
         aligned_stack = aligned_stack.astype('uint16')
-        panchro_array = (0.299 * aligned_stack[:,:,2] + 0.587 * aligned_stack[:,:,1] + 0.114 * aligned_stack[:,:,0]) * 2
+        panchro_array = (0.299 * aligned_stack[:,:,2] + 0.587 * aligned_stack[:,:,1] + 0.114 * aligned_stack[:,:,0]) * 3
         panchro_array = panchro_array.astype('uint16')
         # Retrieve exif dict
         exif_params = exif_params_from_capture(cap)
