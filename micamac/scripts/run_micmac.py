@@ -12,6 +12,7 @@ from shapely.geometry import Point
 
 from micamac.micmac_utils import run_tawny, dir_to_points, update_poubelle, update_ori
 from micamac.micmac_utils import create_proj_file, clean_intermediary, clean_images
+from micamac.micmac_utils import make_tarama_mask
 
 
 COLORS = ['blue', 'green', 'red', 'nir', 'edge']
@@ -89,7 +90,6 @@ def main(img_dir, lon, lat, radius, resolution, ortho, dem, ply,
                          '|'.join(img_list),
                          'Out=Arbitrary_pre', 'SH=_mini'])
 
-    # TODO: Include martini to speed up Tapas init
     # mm3d Martini "pan.*tif" SH=_mini OriCalib=Arbitrary_pre
     if startfrom <= 4:
         subprocess.call(['mm3d', 'Martini', 'pan.*tif',
@@ -122,7 +122,7 @@ def main(img_dir, lon, lat, radius, resolution, ortho, dem, ply,
     if startfrom <= 9:
         # Run Tarama (projection of all images on a horizontal plan), and auto define a mask for use in Malt
         subprocess.call(['mm3d', 'Tarama', 'pan_.*tif', 'Ground_UTM'])
-        # TODO: Write external function to automatically build the mask, from point_list, buffer, and Tamara directory
+        make_tarama_mask(point_list=point_list, utm_zone=utm, buff=50)
 
     if startfrom <= 9:
         # Run malt for panchromatic
