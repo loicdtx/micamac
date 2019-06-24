@@ -31,7 +31,7 @@ STARTFROM_MAPPING = {'exif': 0, # Default
                      'tawny': 11}
 
 def main(img_dir, lon, lat, radius, resolution, ortho, dem, ply,
-         ncores, utm, clean-intermediary, clean-images, startfrom):
+         ncores, utm, clean_intermediary, clean_images, startfrom):
     if not any([ortho, dem, ply]):
         raise ValueError('You must select at least one of --ortho, --dem and --ply')
     startfrom = STARTFROM_MAPPING[startfrom.lower()]
@@ -168,10 +168,10 @@ def main(img_dir, lon, lat, radius, resolution, ortho, dem, ply,
         pass
 
     if clean_intermediary:
-        mutils.clean_intermediary()
+        clean_intermediary()
 
     if clean_images:
-        mutils.clean_images()
+        clean_images()
 
 
 
