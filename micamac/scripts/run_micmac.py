@@ -127,13 +127,21 @@ def main(img_dir, lon, lat, radius, resolution, ortho, dem, ply,
     if startfrom <= 9:
         # Run malt for panchromatic
         subprocess.call(['mm3d', 'Malt', 'Ortho',
-                         'pan.*tif', 'Ground_UTM', 'ResolTerrain=%f' % resolution])
+                         'pan.*tif', 'Ground_UTM', 'DirTA=TA', 'NbProc=%d' % ncores,
+                         'DefCor=0.0005', 'ZoomF=4', 'ResolTerrain=%f' % resolution])
 
     # MIrror content of POubelle for all colors
-    update_poubelle()
+    # In a try-except so that it doesn't fail on re-runs
+    try:
+        update_poubelle()
+    except Exception as e:
+        pass
 
     # Create orientation files for every color
-    update_ori()
+    try:
+        update_ori()
+    except Exception as e:
+        pass
 
     if startfrom <= 10:
         # Run malt for every band
@@ -144,6 +152,8 @@ def main(img_dir, lon, lat, radius, resolution, ortho, dem, ply,
                              'ImOrtho="%s.*.tif"' % color,
                              'DirOF=Ortho-%s' % color,
                              'DirMEC=MEC-Malt',
+                             'ZoomF=4',
+                             'NbProc=%d' % ncores,
                              'ImMNT="pan.*tif"',
                              'ResolTerrain=%f' % resolution])
 
@@ -231,7 +241,7 @@ Example usage:
                         help='Exporte dense point cloud')
 
     parser.add_argument('-n', '--ncores',
-                        default=5,
+                        default=20,
                         type=int,
                         help="""
 Number of cores to use for multiprocessing. There\'s no use in setting it >5,
