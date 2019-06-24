@@ -140,18 +140,18 @@ def make_tarama_mask(point_list, utm_zone, buff=0, TA_dir='TA'):
     root = ET.parse(os.path.join(TA_dir, 'TA_LeChantier.xml')).getroot()
     x_ori, y_ori = [float(x) for x in root.find('OriginePlani').text.split(' ')]
     x_res, y_res = [float(x) for x in root.find('ResolutionPlani').text.split(' ')]
-    shape = tuple(reversed([int(x) for x in root.find('NombrePixels').text.split(' ')]))
+    arr_shape = tuple(reversed([int(x) for x in root.find('NombrePixels').text.split(' ')]))
     aff = Affine(xres, 0, x_ori, 0, y_res, y_ori)
 
     # Rasterize study area to template raster
-    arr = rasterize(shapes=[(study_area, 1)], out_shape=shape, fill=0,
+    arr = rasterize(shapes=[(study_area, 1)], out_shape=arr_shape, fill=0,
                     transform=aff, default_value=1, dtype=rasterio.uint8)
 
     # Write mask to raster
     meta = {'driver': 'GTiff',
             'dtype': 'uint8',
-            'width': shape[1],
-            'height': shape[0],
+            'width': arr_shape[1],
+            'height': arr_shape[0],
             'count': 1,
             'crs': dst_crs,
             'transform': aff}
@@ -170,7 +170,7 @@ def make_tarama_mask(point_list, utm_zone, buff=0, TA_dir='TA'):
      <OrigineAlti>0</OrigineAlti>
      <ResolutionAlti>1</ResolutionAlti>
      <Geometrie>eGeomMNTFaisceauIm1PrCh_Px1D</Geometrie>
-</FileOriMnt>""" % (filename, shape[1], shape[2])
+</FileOriMnt>""" % (filename, arr_shape[1], arr_shape[2])
 
     xml_filename = os.path.join(TA_dir, 'TA_LeChantier_Mask.xml')
     with open(xml_filename, 'w') as dst:
