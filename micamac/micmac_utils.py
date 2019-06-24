@@ -21,7 +21,8 @@ def run_tawny(color):
     """
     subprocess.call(['mm3d', 'Tawny',
                      'Ortho-%s' % color,
-                     'DEq=0', 'DegRap=1'])
+                     'DEq=1', 'DegRap=4', 'SzV=25'])
+    # DEq=1 RadiomEgal=1 DegRapXY=4 SzV=25
 
 
 def img_to_Point(img_path):
@@ -144,8 +145,8 @@ def make_tarama_mask(point_list, utm_zone, buff=0, TA_dir='TA'):
     aff = Affine(x_res, 0, x_ori, 0, y_res, y_ori)
 
     # Rasterize study area to template raster
-    arr = rasterize(shapes=[(study_area, 1)], out_shape=arr_shape, fill=0,
-                    transform=aff, default_value=1, dtype=rasterio.uint8)
+    arr = rasterize(shapes=[(study_area, 255)], out_shape=arr_shape, fill=0,
+                    transform=aff, default_value=255, dtype=rasterio.uint8)
 
     # Write mask to raster
     meta = {'driver': 'GTiff',
@@ -160,8 +161,7 @@ def make_tarama_mask(point_list, utm_zone, buff=0, TA_dir='TA'):
         dst.write(arr, 1)
 
     # Create associated xml file
-    xml_content = """
-<?xml version="1.0" ?>
+    xml_content = """<?xml version="1.0" ?>
 <FileOriMnt>
      <NameFileMnt>%s</NameFileMnt>
      <NombrePixels>%d %d</NombrePixels>
@@ -170,9 +170,9 @@ def make_tarama_mask(point_list, utm_zone, buff=0, TA_dir='TA'):
      <OrigineAlti>0</OrigineAlti>
      <ResolutionAlti>1</ResolutionAlti>
      <Geometrie>eGeomMNTFaisceauIm1PrCh_Px1D</Geometrie>
-</FileOriMnt>""" % (filename, arr_shape[1], arr_shape[2])
+</FileOriMnt>""" % (filename, arr_shape[0], arr_shape[1])
 
-    xml_filename = os.path.join(TA_dir, 'TA_LeChantier_Mask.xml')
+    xml_filename = os.path.join(TA_dir, 'TA_LeChantier_Masq.xml')
     with open(xml_filename, 'w') as dst:
         dst.write(xml_content)
 
