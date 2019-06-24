@@ -4,9 +4,16 @@ import multiprocessing as mp
 import re
 import os
 import shutil
+import xml.etree.ElementTree as ET
 
 from shapely.geometry import Point
 import exiftool
+import rasterio
+from rasterio.crs import CRS
+from rasterio.warp import transform_geom
+from rasterio.features import rasterize
+from affine import Affine
+from shapely.geometry import mapping, shape, MultiPoint
 
 
 def run_tawny(color):
@@ -106,3 +113,70 @@ def create_proj_file(zone):
 
     with open('SysUTM.xml', 'w') as dst:
         dst.write(proj_xml)
+
+
+def make_tarama_mask(point_list, utm_zone, buff=0, TA_dir='TA'):
+    """Generate a mask using the gps coordinates of the captures
+
+    This command follows the execution of tarama, after which a mask is normally
+    created interactively by the user
+
+    Args:
+        point_list (list): List of (shapely.Point, str) tuples. See ``dir_to_points``
+        utm_zone (int): Utm zone of the project
+        buffer (float): optional buffer to extend or reduce masked area around
+           the convex hull of the point list
+        TA_dir (str): tarama dir relative to current directory. Defaults to ``'TA'``
+    """
+    # Build study area polygon
+    src_crs = CRS.from_epsg(4326)
+    dst_crs = CRS(proj='utm', zone=utm_zone, ellps='WGS84', units='m')
+    feature_list = [mapping(x[0]) for x in point_list]
+    feature_list_proj = [transform_geom(src_crs, dst_crs, x) for x in feature_list]
+    point_list_proj = [shape(x) for x in feature_list_proj]
+    study_area = MultiPoint(point_list_proj).convex_hull.buffer(buff)
+
+    # Retrieve Affine transform and shape from TA dir
+    root = ET.parse(os.path.join(TA_dir, 'TA_LeChantier.xml')).getroot()
+    x_ori, y_ori = [float(x) for x in root.find('OriginePlani').text.split(' ')]
+    x_res, y_res = [float(x) for x in root.find('ResolutionPlani').text.split(' ')]
+    shape = tuple(reversed([int(x) for x in root.find('NombrePixels').text.split(' ')]))
+    aff = Affine(xres, 0, x_ori, 0, y_res, y_ori)
+
+    # Rasterize study area to template raster
+    arr = rasterize(shapes=[(study_area, 1)], out_shape=shape, fill=0,
+                    transform=aff, default_value=1, dtype=rasterio.uint8)
+
+    # Write mask to raster
+    meta = {'driver': 'GTiff',
+            'dtype': 'uint8',
+            'width': shape[1],
+            'height': shape[0],
+            'count': 1,
+            'crs': dst_crs,
+            'transform': aff}
+    filename = os.path.join(TA_dir, 'TA_LeChantier_Masq.tif')
+    with rasterio.open(filename, 'w', **meta) as dst:
+        dst.write(arr, 1)
+
+    # Create associated xml file
+    xml_content = """
+<?xml version="1.0" ?>
+<FileOriMnt>
+     <NameFileMnt>%s</NameFileMnt>
+     <NombrePixels>%d %d</NombrePixels>
+     <OriginePlani>0 0</OriginePlani>
+     <ResolutionPlani>1 1</ResolutionPlani>
+     <OrigineAlti>0</OrigineAlti>
+     <ResolutionAlti>1</ResolutionAlti>
+     <Geometrie>eGeomMNTFaisceauIm1PrCh_Px1D</Geometrie>
+</FileOriMnt>""" % (filename, shape[1], shape[2])
+
+    xml_filename = os.path.join(TA_dir, 'TA_LeChantier_Mask.xml')
+    with open(xml_filename, 'w') as dst:
+        dst.write(xml_content)
+
+
+
+
+

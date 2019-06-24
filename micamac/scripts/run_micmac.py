@@ -11,8 +11,8 @@ import multiprocessing as mp
 from shapely.geometry import Point
 
 from micamac.micmac_utils import run_tawny, dir_to_points, update_poubelle, update_ori
-from micamac.micmac_utils import create_proj_file
-import micamac.micmac_utils as mutils
+from micamac.micmac_utils import create_proj_file, clean_intermediary, clean_images
+from micamac.micmac_utils import make_tarama_mask
 
 
 COLORS = ['blue', 'green', 'red', 'nir', 'edge']
@@ -86,36 +86,45 @@ def main(img_dir, lon, lat, radius, resolution, ortho, dem, ply,
 
     if startfrom <= 3:
         # mm3d Tapas FraserBasic $file_list Out=Arbitrary_pre SH=_mini
-        subprocess.call(['mm3d', 'Tapas', 'FraserBasic',
+        subprocess.call(['mm3d', 'Tapas', 'RadialStd',
                          '|'.join(img_list),
                          'Out=Arbitrary_pre', 'SH=_mini'])
 
-    # TODO: Include martini to speed up Tapas init
+    # mm3d Martini "pan.*tif" SH=_mini OriCalib=Arbitrary_pre
+    if startfrom <= 4:
+        subprocess.call(['mm3d', 'Martini', 'pan.*tif',
+                         'SH=_mini', 'OriCalib=Arbitrary_pre'])
 
     if startfrom <= 5:
         # Compute orientation model for the full block
         # mm3d Tapas FraserBasic "pan.*tif" Out=Arbitrary SH=_mini InCal=Arbitrary_pre
+        # mm3d Tapas FraserBasic "pan.*tif" Out=Arbitrary InCal=Arbitrary_pre SH=_mini InOri=Martini_miniArbitrary_pre
         p = subprocess.Popen(['mm3d', 'Tapas', 'FraserBasic',
                               'pan.*tif', 'Out=Arbitrary', 'SH=_mini',
-                              'InCal=Arbitrary_pre'])
+                              'InCal=Arbitrary_pre', 'InOri=Martini_miniArbitrary_pre'])
         p.communicate(input='\n')
 
-    if startfrom <= 5:
+    if startfrom <= 6:
         # mm3d CenterBascule "rgb.*tif" Arbitrary RAWGNSS_N Ground_Init_RTL
         subprocess.call(['mm3d', 'CenterBascule', 'pan.*tif',
                          'Arbitrary', 'RAWGNSS_N', 'Ground_Init_RTL'])
 
-    if startfrom <= 6:
+    if startfrom <= 7:
         # mm3d Campari "rgb.*tif" Ground_Init_RTL Ground_RTL EmGPS=\[RAWGNSS_N,5\] AllFree=1 SH=_mini
         subprocess.call(['mm3d', 'Campari', 'pan.*tif', 'Ground_Init_RTL', 'Ground_RTL',
                          'EmGPS=[RAWGNSS_N,5]', 'AllFree=1', 'SH=_mini'])
 
-    if startfrom <= 7:
+    if startfrom <= 8:
         # mm3d ChgSysCo  "rgb.*tif" Ground_RTL RTLFromExif.xml@SysUTM.xml Ground_UTM
         subprocess.call(['mm3d', 'ChgSysCo', 'pan.*tif',
                          'Ground_RTL', 'RTLFromExif.xml@SysUTM.xml', 'Ground_UTM'])
 
-    if startfrom <= 8:
+    if startfrom <= 9:
+        # Run Tarama (projection of all images on a horizontal plan), and auto define a mask for use in Malt
+        subprocess.call(['mm3d', 'Tarama', 'pan_.*tif', 'Ground_UTM'])
+        make_tarama_mask(point_list=point_list, utm_zone=utm, buff=50)
+
+    if startfrom <= 9:
         # Run malt for panchromatic
         subprocess.call(['mm3d', 'Malt', 'Ortho',
                          'pan.*tif', 'Ground_UTM', 'ResolTerrain=%f' % resolution])
@@ -126,7 +135,7 @@ def main(img_dir, lon, lat, radius, resolution, ortho, dem, ply,
     # Create orientation files for every color
     update_ori()
 
-    if startfrom <= 9:
+    if startfrom <= 10:
         # Run malt for every band
         for color in COLORS:
             subprocess.call(['mm3d', 'Malt', 'Ortho',
