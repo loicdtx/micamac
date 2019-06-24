@@ -141,7 +141,7 @@ def make_tarama_mask(point_list, utm_zone, buff=0, TA_dir='TA'):
     x_ori, y_ori = [float(x) for x in root.find('OriginePlani').text.split(' ')]
     x_res, y_res = [float(x) for x in root.find('ResolutionPlani').text.split(' ')]
     arr_shape = tuple(reversed([int(x) for x in root.find('NombrePixels').text.split(' ')]))
-    aff = Affine(xres, 0, x_ori, 0, y_res, y_ori)
+    aff = Affine(x_res, 0, x_ori, 0, y_res, y_ori)
 
     # Rasterize study area to template raster
     arr = rasterize(shapes=[(study_area, 1)], out_shape=arr_shape, fill=0,
