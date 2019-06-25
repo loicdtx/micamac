@@ -176,6 +176,16 @@ def make_tarama_mask(point_list, utm_zone, buff=0, TA_dir='TA'):
         dst.write(xml_content)
 
 
+def get_and_georeference_dem(utm_zone):
+    """Retrieve DEM from MEC-Malt directory and move it to the OUTPUT dir, while adding a CRS
+    """
+    dem_filename = sorted(glob.glob('MEC-Malt/Z_Num*_DeZoom*tif'))[-1]
+    # gdal_translate -a_srs "+proj=utm +zone=33 +ellps=WGS84 +datum=WGS84 +units=m +no_defs" MEC-Malt/Z_Num7_DeZoom4_STD-MALT.tif OUTPUT/dem_aac_1.tif
+    subprocess.call(['gdal_translate', '-a_srs',
+                     '+proj=utm +zone=%d +ellps=WGS84 +datum=WGS84 +units=m +no_defs' % utm_zone,
+                     dem_filename, 'OUTPUT/dem.tif'])
+
+
 
 
 
