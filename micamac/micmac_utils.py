@@ -21,8 +21,7 @@ def run_tawny(color):
     """
     subprocess.call(['mm3d', 'Tawny',
                      'Ortho-%s' % color,
-                     'DEq=1', 'DegRap=4', 'SzV=25'])
-    # DEq=1 RadiomEgal=1 DegRapXY=4 SzV=25
+                     'DEq=1', 'DegRap=0', 'SzV=25'])
 
 
 def img_to_Point(img_path):
@@ -84,7 +83,7 @@ def update_ori(path='Ori-Ground_UTM'):
 def clean_intermediary(exclude=['OUTPUT']):
     """Delete all intermediary output of the micmac execution
     """
-    if isinstance(exclude, string):
+    if isinstance(exclude, str):
         exclude = [exclude]
     dir_list = glob.glob('*/')
     [dir_list.remove(d) for d in exclude]
