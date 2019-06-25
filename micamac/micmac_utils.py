@@ -80,7 +80,7 @@ def update_ori(path='Ori-Ground_UTM'):
     [shutil.copyfile(x, ori_file_pattern.sub(r'\1edge\2', x)) for x in ori_pan_list]
 
 
-def clean_intermediary(exclude=['OUTPUT']):
+def clean_intermediary(exclude=['OUTPUT/']):
     """Delete all intermediary output of the micmac execution
     """
     if isinstance(exclude, str):
@@ -174,6 +174,16 @@ def make_tarama_mask(point_list, utm_zone, buff=0, TA_dir='TA'):
     xml_filename = os.path.join(TA_dir, 'TA_LeChantier_Masq.xml')
     with open(xml_filename, 'w') as dst:
         dst.write(xml_content)
+
+
+def get_and_georeference_dem(utm_zone):
+    """Retrieve DEM from MEC-Malt directory and move it to the OUTPUT dir, while adding a CRS
+    """
+    dem_filename = sorted(glob.glob('MEC-Malt/Z_Num*_DeZoom*tif'))[-1]
+    # gdal_translate -a_srs "+proj=utm +zone=33 +ellps=WGS84 +datum=WGS84 +units=m +no_defs" MEC-Malt/Z_Num7_DeZoom4_STD-MALT.tif OUTPUT/dem_aac_1.tif
+    subprocess.call(['gdal_translate', '-a_srs',
+                     '+proj=utm +zone=%d +ellps=WGS84 +datum=WGS84 +units=m +no_defs' % utm_zone,
+                     dem_filename, 'OUTPUT/dem.tif'])
 
 
 

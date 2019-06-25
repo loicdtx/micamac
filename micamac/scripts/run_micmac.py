@@ -12,7 +12,7 @@ from shapely.geometry import Point
 
 from micamac.micmac_utils import run_tawny, dir_to_points, update_poubelle, update_ori
 from micamac.micmac_utils import create_proj_file, clean_intermediary, clean_images
-from micamac.micmac_utils import make_tarama_mask
+from micamac.micmac_utils import make_tarama_mask, get_and_georeference_dem
 
 
 COLORS = ['blue', 'green', 'red', 'nir', 'edge']
@@ -172,7 +172,7 @@ def main(img_dir, lon, lat, radius, resolution, ortho, dem, ply,
                              'Ortho-%s/Orthophotomosaic.tif' % color,
                              'OUTPUT/ortho_%s.tif' % color])
     if dem:
-        pass
+        get_and_georeference_dem(utm_zone=utm)
 
     if ply:
         pass
