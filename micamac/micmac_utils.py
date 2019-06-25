@@ -80,7 +80,7 @@ def update_ori(path='Ori-Ground_UTM'):
     [shutil.copyfile(x, ori_file_pattern.sub(r'\1edge\2', x)) for x in ori_pan_list]
 
 
-def clean_intermediary(exclude=['OUTPUT']):
+def clean_intermediary(exclude=['OUTPUT/']):
     """Delete all intermediary output of the micmac execution
     """
     if isinstance(exclude, str):
