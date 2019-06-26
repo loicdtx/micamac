@@ -31,6 +31,7 @@ import micasense.imageset as imageset
 
 from micamac.micasense_utils import capture_to_point, capture_to_files
 from micamac.flask_utils import shutdown_server
+from micamac.sixs import modeled_irradiance_from_capture
 
 
 app = Flask(__name__, template_folder='../../templates')
@@ -158,6 +159,11 @@ def main(img_dir, out_dir, alt_thresh, ncores, start_count, scaling,
     elif irradiance == 'dls':
         img_type = 'reflectance'
         irradiance_list = None
+    elif irradiance == 'sixs':
+        # Pick the middle cature, and use it to model clear sky irradiance using 6s
+        middle_c = imgset.captures[round(len(imgset.captures)/2)]
+        img_type = 'reflectance'
+        irradiance_list = modeled_irradiance_from_capture(middle_c)
     elif irradiance is None:
         img_type = None
         irradiance_list = None
@@ -277,6 +283,7 @@ Way of retrieving irradiance values for computing reflectance:
     panel: Use reflectance panel. It is assumed that panel images are present in the
            first and/or the last image of the set
     dls: Use onboad Downwelling Light Sensor
+    sixs: Model clear sky irradiance values using sixs radiative transfer modeling
     None (leave empty): Reflectance is not computed and radiance images are returned instead
                         """)
 
