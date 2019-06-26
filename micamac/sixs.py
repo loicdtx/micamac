@@ -1,5 +1,13 @@
 from Py6S import *
 
+try:
+    SixS.test()
+except Exception as e:
+    _has_sixs = False
+else:
+    _has_sixs = True
+
+
 
 WAVELENGTHS = [0.475, 0.560, 0.668, 0.840, 0.717]
 
@@ -15,6 +23,8 @@ def modeled_irradiance_from_capture(c):
         list: List of five elements corresponding to the modeled irradiance for each
         of the five spectral chanels
     """
+    if not _has_sixs:
+        raise ImportError('Py6S must be installed and properly configured (6s binary installed) to use that function')
     c_time = c.utc_time().strftime('%d/%m/%Y %H:%M:%S')
     c_lat,c_lon,_ = c.location()
     s = SixS()
