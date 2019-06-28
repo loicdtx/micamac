@@ -101,8 +101,9 @@ def main(img_dir, lon, lat, radius, resolution, ortho, dem, ply,
         # mm3d Tapas FraserBasic "pan.*tif" Out=Arbitrary InCal=Arbitrary_pre SH=_mini InOri=Martini_miniArbitrary_pre
         p = subprocess.Popen(['mm3d', 'Tapas', 'FraserBasic', 'pan.*tif',
                               'Out=Arbitrary', 'SH=_mini', 'InCal=Arbitrary_pre',
-                              'InOri=Martini_miniArbitrary_pre', 'EcMax=50'])
-        p.communicate(input='\n')
+                              'InOri=Martini_miniArbitrary_pre', 'EcMax=50'],
+                             stdin=subprocess.PIPE, shell=True)
+        p.communicate(input='\n'.encode('utf-8'))
 
     if startfrom <= 6:
         # mm3d CenterBascule "rgb.*tif" Arbitrary RAWGNSS_N Ground_Init_RTL
