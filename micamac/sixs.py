@@ -1,7 +1,12 @@
+import os
+import contextlib
+
 from Py6S import *
 
 try:
-    SixS.test()
+    with open(os.devnull, 'w') as devnull:
+        with contextlib.redirect_stdout(devnull):
+            SixS.test()
 except Exception as e:
     _has_sixs = False
 else:
