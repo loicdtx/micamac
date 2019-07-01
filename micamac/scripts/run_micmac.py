@@ -102,7 +102,7 @@ def main(img_dir, lon, lat, radius, resolution, ortho, dem, ply,
         p = subprocess.Popen(['mm3d', 'Tapas', 'FraserBasic', 'pan.*tif',
                               'Out=Arbitrary', 'SH=_mini', 'InCal=Arbitrary_pre',
                               'InOri=Martini_miniArbitrary_pre', 'EcMax=50'],
-                             stdin=subprocess.PIPE, shell=True)
+                             stdin=subprocess.PIPE)
         p.communicate(input='\n'.encode('utf-8'))
 
     if startfrom <= 6:
