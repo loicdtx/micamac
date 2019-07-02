@@ -7,6 +7,7 @@ import shutil
 import re
 import subprocess
 import multiprocessing as mp
+import functools as ft
 
 from micamac.micmac_utils import run_tawny
 
@@ -27,9 +28,10 @@ def main(img_dir, filename_prefix, utm, **kwargs):
     tawny_kwargs = {k:v for k,v in kwargs.items() if v is not None}
 
     Out = '%s.tif' % filename_prefix
-    arg_list['Out'] = Out
+    tawny_kwargs['Out'] = Out
 
     arg_list = ['{k}={v}'.format(k=k,v=v) for k,v in tawny_kwargs.items()]
+    print(arg_list)
 
     # Set workdir
     os.chdir(img_dir)
@@ -40,7 +42,7 @@ def main(img_dir, filename_prefix, utm, **kwargs):
 
     # Run Tawny for every band
     pool = mp.Pool(5)
-    pool.map(tawny_runner, COLORS)
+    pool.map(ft.partial(tawny_runner, args=arg_list),  COLORS)
 
     for color in COLORS:
         subprocess.call(['gdal_translate', '-a_srs',
@@ -82,9 +84,9 @@ Example usage:
                         type=str,
                         help='Prefix used for the orthomosaic name (suffix is {color}.tif)')
 
-    parser.add_argument('--RadiomEgal', dest='RadiomEgal', action='store_true')
-    parser.add_argument('--no-RadiomEgal', dest='RadiomEgal', action='store_false')
-    parser.set_defaults(RadiomEgal=True)
+    parser.add_argument('--RadiomEgal', dest='RadiomEgal', action='store_const', const=1)
+    parser.add_argument('--no-RadiomEgal', dest='RadiomEgal', action='store_const', const=0)
+    parser.set_defaults(RadiomEgal=1)
 
     parser.add_argument('--DEq', '-DEq',
                         default=1,
@@ -99,7 +101,9 @@ Example usage:
 
     parser.add_argument('--AddCste',
                         help='Add unknown constant for equalization',
-                        action='store_true')
+                        action='store_const',
+                        const=1,
+                        default=0)
 
     parser.add_argument('--DegRap', '-DegRap',
                         help='Degree of rappel to initial values',
