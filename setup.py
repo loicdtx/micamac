@@ -36,5 +36,6 @@ setup(name='micamac',
           # 'micamac/scripts/get_centers.py',
           'micamac/scripts/align_images.py',
           'micamac/scripts/run_micmac.py',
+          'micamac/scripts/run_seamline_feathering.py',
           'micamac/scripts/rerun_tawny.py'
       ])
