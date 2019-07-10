@@ -25,7 +25,7 @@ def main(img_dir, utm):
     ortho_dirs = [os.path.join(img_dir, 'Ortho-%s' % color) for color in COLORS]
 
     # Run Tawny for every band
-    pool = mp.Pool(5)
+    pool = mp.Pool(2)
     pool.map(sf_runner, ortho_dirs)
 
     os.chdir(img_dir)
